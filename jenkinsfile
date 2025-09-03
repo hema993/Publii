@@ -1,49 +1,40 @@
+
 pipeline {
     agent any
 
     environment {
-        GIT_URL = 'https://github.com/hema993/Publii.git'
-        IMAGE_NAME = 'publii-static'
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        IMAGE_NAME = 'your-dockerhub-username/your-image-name'
+        IMAGE_TAG = 'latest'  // or use a build number, e.g., "${BUILD_NUMBER}"
+        DOCKERHUB_CRED = 'your-dockerhub-credentials-id'
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'master', url: "${GIT_URL}"
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 script {
-                  sh'docker rm -f staticwebsite ||true'
-                  sh "docker run -d -p 8081:80 --name staticwebsite ${IMAGE_NAME}:${IMAGE_TAG}"
-                    docker.build("${IMAGE_NAME}:${IMAGE_TAG}", "-f Dockerfile .")
+                    sh 'docker rm -f staticwebsite || true'
+                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile ."
+                    sh "docker run -d -p 8081:80 --name staticwebsite ${IMAGE_NAME}:${IMAGE_TAG}"
                 }
             }
         }
 
-stage('Push to Docker Hub') {
-      steps {
-        script {
-          docker.withRegistry("https://index.docker.io/v1/", "${DOCKERHUB_CRED}") {
-
-            sh """
-              docker rmi -f ${IMAGE_NAME}:${IMAGE_TAG} || true
-              docker rmi -f ${IMAGE_NAME}:latest || true
-            """
-
-            sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
-
-            sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
-
-            sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
-            sh "docker push ${IMAGE_NAME}:latest"
-          }
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', "${DOCKERHUB_CRED}") {
+                        sh """
+                            docker rmi -f ${IMAGE_NAME}:${IMAGE_TAG} || true
+                            docker rmi -f ${IMAGE_NAME}:latest || true
+                        """
+                        sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                        sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
+                        sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+                        sh "docker push ${IMAGE_NAME}:latest"
+                    }
+                }
+            }
         }
-      }
-    }
 
         stage('Cleanup') {
             steps {
