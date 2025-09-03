@@ -1,0 +1,52 @@
+pipeline {
+    agent any
+
+    environment {
+        GIT_URL = 'https://github.com/hema993/Publii.git'
+        IMAGE_NAME = 'publii-static'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: https://github.com/hema993/Publii.git, branch: 'master'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build("${IMAGE_NAME}:${IMAGE_TAG}", "-f Dockerfile .")
+                }
+            }
+        }
+
+        stage('Push Image') {
+            when {
+                expression { env.DOCKER_REGISTRY_CREDENTIALS != null }
+            }
+            steps {
+                script {
+                    docker.withRegistry('', env.DOCKER_REGISTRY_CREDENTIALS) {
+                        docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push()
+                        docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push('latest')
+                    }
+                }
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG} || true"
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
+
